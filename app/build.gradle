@@ -1,0 +1,84 @@
+plugins {
+    id 'com.android.application'
+    id 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
+}
+
+def rootDebugKeystore = file("${rootDir}/debug.keystore")
+def rootDebugKeystoreB64 = file("${rootDir}/debug.keystore.base64")
+if (!rootDebugKeystore.exists() && rootDebugKeystoreB64.exists()) {
+    rootDebugKeystore.bytes = rootDebugKeystoreB64.text.replaceAll("\\s", "").decodeBase64()
+}
+
+def configuredAmapKey = [project.findProperty('AMAP_KEY'), System.getenv('AMAP_KEY')]
+        .find { it != null && it.toString().trim() } ?: 'YOUR_AMAP_KEY'
+
+android {
+    namespace 'com.navith.amap'
+    compileSdk 35
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        applicationId 'com.navith.amap'
+        minSdk 26
+        targetSdk 35
+        versionCode 9
+        versionName '0.9.0-navigation-marker-test'
+        manifestPlaceholders = [AMAP_KEY: configuredAmapKey.toString()]
+    }
+    signingConfigs {
+        debugConfig {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debugConfig")
+            applicationIdSuffix ''
+            debuggable true
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    packaging {
+        jniLibs { useLegacyPackaging true }
+    }
+}
+
+secrets {
+    propertiesFileName = ".env"
+    defaultPropertiesFileName = ".env.example"
+}
+
+dependencies {
+    if (file('libs/amap-combined-20260805.jar').exists()) {
+        implementation files('libs/amap-combined-20260805.jar')
+    }
+    implementation 'androidx.car.app:app:1.7.0'
+    implementation 'androidx.car.app:app-projected:1.7.0'
+}
+
+tasks.register('unpackAmapNatives', Copy) {
+    onlyIf { file('libs/amap-native-android.zip').exists() }
+    if (file('libs/amap-native-android.zip').exists()) {
+        from(zipTree('libs/amap-native-android.zip'))
+    }
+    into(layout.buildDirectory.dir('generated/amapNative'))
+}
+if (file('libs/amap-native-android.zip').exists()) {
+    android.sourceSets.main.jniLibs.srcDirs += [file("${buildDir}/generated/amapNative")]
+}
+tasks.named('preBuild').configure { dependsOn 'unpackAmapNatives' }
+tasks.matching { it.name.startsWith('merge') && it.name.endsWith('NativeLibs') }
+        .configureEach { dependsOn 'unpackAmapNatives' }
+

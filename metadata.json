@@ -1,0 +1,7 @@
+{
+  "name": "NaviTH AMAP Navigation",
+  "description": "AMAP Thailand map, place search, route preview, and Android Auto navigation companion.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
